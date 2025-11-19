@@ -31,6 +31,12 @@
 
           <!-- Estatísticas -->
           <div class="md:col-span-2 space-y-6">
+            <!-- Streak Display -->
+            <div class="card">
+              <h3 class="text-xl font-bold mb-4">🔥 Sua Sequência</h3>
+              <StreakDisplay />
+            </div>
+
             <!-- Resumo de Progresso -->
             <div class="card">
               <h3 class="text-xl font-bold mb-4">📊 Seu Progresso</h3>
@@ -158,6 +164,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useFlashcardsStore } from '../stores/flashcards'
+import StreakDisplay from '../components/StreakDisplay.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

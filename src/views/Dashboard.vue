@@ -56,6 +56,11 @@
 
     <!-- Main Content -->
     <main class="container mx-auto px-4 py-8">
+      <!-- Streak Overview (before progress) -->
+      <div class="mb-8">
+        <StreakDisplay />
+      </div>
+
       <!-- Progress Overview -->
       <div class="mb-8 card">
         <div class="flex items-center justify-between mb-4">
@@ -167,6 +172,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFlashcardsStore } from '../stores/flashcards'
 import { useAuthStore } from '../stores/auth'
+import StreakDisplay from '../components/StreakDisplay.vue'
 
 const router = useRouter()
 const store = useFlashcardsStore()

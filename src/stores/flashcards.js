@@ -7,6 +7,8 @@ export const useFlashcardsStore = defineStore('flashcards', () => {
   // Estado
   const flashcards = ref(flashcardsData)
   const userProgress = ref(loadProgress())
+  const currentStreak = ref(loadStreak())
+  const longestStreak = ref(loadLongestStreak())
   const currentCategory = ref(null)
   const currentUserId = ref(null)
   const syncEnabled = ref(true)
@@ -56,6 +58,34 @@ export const useFlashcardsStore = defineStore('flashcards', () => {
   function loadProgress() {
     const saved = localStorage.getItem('flashcards-progress')
     return saved ? JSON.parse(saved) : {}
+  }
+
+  function loadStreak() {
+    const saved = localStorage.getItem('flashcards-streak')
+    return saved ? parseInt(saved) : 0
+  }
+
+  function loadLongestStreak() {
+    const saved = localStorage.getItem('flashcards-longest-streak')
+    return saved ? parseInt(saved) : 0
+  }
+
+  function saveStreak() {
+    localStorage.setItem('flashcards-streak', currentStreak.value.toString())
+    if (currentStreak.value > longestStreak.value) {
+      longestStreak.value = currentStreak.value
+      localStorage.setItem('flashcards-longest-streak', longestStreak.value.toString())
+    }
+  }
+
+  function incrementStreak() {
+    currentStreak.value++
+    saveStreak()
+  }
+
+  function resetStreak() {
+    currentStreak.value = 0
+    localStorage.setItem('flashcards-streak', '0')
   }
 
   async function saveProgress() {
@@ -186,6 +216,8 @@ export const useFlashcardsStore = defineStore('flashcards', () => {
     studySession,
     currentUserId,
     syncEnabled,
+    currentStreak,
+    longestStreak,
     categories,
     getFlashcardsByCategory,
     totalFlashcards,
@@ -198,6 +230,27 @@ export const useFlashcardsStore = defineStore('flashcards', () => {
     getCardProgress,
     resetProgress,
     setUserId,
-    syncProgressFromFirebase
+    syncProgressFromFirebase,
+    incrementStreak,
+    resetStreak,
+    exportProgressToCSV: () => exportProgressToCSV(userProgress.value, flashcards.value),
+    exportDetailedProgressToCSV: () => exportDetailedProgressToCSV(userProgress.value, flashcards.value),
+    exportStatisticsToCSV: () => exportStatisticsToCSV(userProgress.value, flashcards.value),
+    importProgressFromCSV: async (file) => {
+      const result = await importProgressFromCSV(file)
+      if (result.success && result.data) {
+        userProgress.value = result.data
+        // Salvar progresso localmente e tentar sincronizar com timeout
+        try {
+          await Promise.race([
+            saveProgress(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('save-timeout')), 5000))
+          ])
+        } catch (err) {
+          console.warn('Salvar progresso demorou ou falhou (continuando):', err)
+        }
+      }
+      return result
+    }
   }
 })
