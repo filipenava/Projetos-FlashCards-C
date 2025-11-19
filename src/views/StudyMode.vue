@@ -13,10 +13,15 @@
           </p>
         </div>
         
-        <div class="text-right">
-          <p class="text-sm text-gray-600">Sessão Atual</p>
-          <p class="text-2xl font-bold text-secondary">✓ {{ correctCount }}</p>
-          <p class="text-2xl font-bold text-red-500">✗ {{ incorrectCount }}</p>
+        <div class="flex flex-col items-end gap-4">
+          <!-- Streak Display -->
+          <StreakDisplay />
+          
+          <div class="text-right">
+            <p class="text-sm text-gray-600">Sessão Atual</p>
+            <p class="text-2xl font-bold text-secondary">✓ {{ correctCount }}</p>
+            <p class="text-2xl font-bold text-red-500">✗ {{ incorrectCount }}</p>
+          </div>
         </div>
       </div>
 
@@ -122,21 +127,41 @@
           <div class="flex gap-4 justify-center">
             <button 
               @click="markCard('incorrect')"
-              class="btn bg-red-500 text-white hover:bg-red-600 flex items-center gap-2"
+              class="btn bg-red-500 text-white hover:bg-red-600 flex items-center gap-2 transition-all"
+              :disabled="lastMarkResult !== null"
             >
               ❌ Não Entendi
             </button>
             <button 
               @click="markCard('review')"
-              class="btn bg-yellow-500 text-white hover:bg-yellow-600 flex items-center gap-2"
+              class="btn bg-yellow-500 text-white hover:bg-yellow-600 flex items-center gap-2 transition-all"
+              :disabled="lastMarkResult !== null"
             >
               🔄 Revisar Depois
             </button>
             <button 
               @click="markCard('correct')"
-              class="btn bg-green-500 text-white hover:bg-green-600 flex items-center gap-2"
+              class="btn bg-green-500 text-white hover:bg-green-600 flex items-center gap-2 transition-all"
+              :disabled="lastMarkResult !== null"
             >
               ✅ Entendi!
+            </button>
+          </div>
+          <div v-if="lastMarkResult === 'correct'" class="mt-4 p-3 bg-green-100 text-green-700 rounded-lg text-center font-semibold animate-pulse">
+            ✅ Parabéns! Avançando...
+          </div>
+          <div v-if="lastMarkResult === 'incorrect'" class="mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-center font-semibold animate-pulse">
+            ❌ Tente novamente! Avançando...
+          </div>
+          <div v-if="lastMarkResult === 'review'" class="mt-4 p-3 bg-yellow-100 text-yellow-700 rounded-lg text-center font-semibold animate-pulse">
+            🔄 Revisar depois! Avançando...
+          </div>
+          <div v-if="lastMarkResult !== null" class="mt-4 pt-4 border-t border-gray-200">
+            <button 
+              @click="advanceCard"
+              class="w-full btn btn-primary"
+            >
+              Próximo Card →
             </button>
           </div>
         </div>
@@ -155,9 +180,7 @@
         
         <button 
           @click="nextCard"
-          :disabled="currentIndex === flashcards.length - 1"
-          class="btn btn-primary"
-          :class="{ 'opacity-50 cursor-not-allowed': currentIndex === flashcards.length - 1 }"
+          class="btn btn-secondary"
         >
           Próximo →
         </button>
@@ -198,6 +221,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useFlashcardsStore } from '../stores/flashcards'
+import StreakDisplay from '../components/StreakDisplay.vue'
 
 const route = useRoute()
 const store = useFlashcardsStore()
@@ -208,6 +232,7 @@ const isFlipped = ref(false)
 const correctCount = ref(0)
 const incorrectCount = ref(0)
 const showCompletionModal = ref(false)
+const lastMarkResult = ref(null)
 
 const flashcards = computed(() => {
   return store.flashcards.filter(card => card.category === categoryId.value)
@@ -227,6 +252,9 @@ function nextCard() {
   if (currentIndex.value < flashcards.value.length - 1) {
     currentIndex.value++
     isFlipped.value = false
+  } else {
+    // Está no último card, finalizar a sessão
+    finishSession()
   }
 }
 
@@ -239,24 +267,23 @@ function previousCard() {
 
 function markCard(result) {
   const cardId = currentCard.value.id
+  lastMarkResult.value = result
   
   if (result === 'correct') {
     correctCount.value++
-    store.updateCardProgress(cardId, 'learned', true)
     store.recordAnswer(true, cardId)
+    store.updateCardProgress(cardId, 'learned', true)
+    store.incrementStreak()
   } else if (result === 'incorrect') {
     incorrectCount.value++
-    store.updateCardProgress(cardId, 'learning', false)
     store.recordAnswer(false, cardId)
+    store.updateCardProgress(cardId, 'in-progress', false)
+    store.resetStreak()
   } else if (result === 'review') {
-    store.updateCardProgress(cardId, 'review', null)
-    store.recordAnswer(null, cardId)
-  }
-  
-  if (currentIndex.value < flashcards.value.length - 1) {
-    nextCard()
-  } else {
-    finishSession()
+    incorrectCount.value++
+    store.recordAnswer(false, cardId)
+    store.updateCardProgress(cardId, 'review')
+    store.resetStreak()
   }
 }
 
@@ -265,12 +292,25 @@ async function finishSession() {
   showCompletionModal.value = true
 }
 
+function advanceCard() {
+  lastMarkResult.value = null
+  isFlipped.value = false
+  
+  if (currentIndex.value < flashcards.value.length - 1) {
+    currentIndex.value++
+  } else {
+    // Está no último card, finalizar a sessão
+    finishSession()
+  }
+}
+
 function restartSession() {
   currentIndex.value = 0
   isFlipped.value = false
   correctCount.value = 0
   incorrectCount.value = 0
   showCompletionModal.value = false
+  lastMarkResult.value = null
   store.startStudySession(categoryId.value)
 }
 
